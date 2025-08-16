@@ -252,45 +252,39 @@ def download_and_upload_file(client, callback_query):
         caption = get_caption(user_id) or file_name
         sent_msg = send_and_delete_file(client, callback_query.message.chat.id, download_path, thumb_path, caption, user_id)
 
-        # ===== Forward / Copy to log channel(s) =====
-        if LOG_CHANNELS:
-            if isinstance(LOG_CHANNELS, (list, tuple)):
-                for log_chat in LOG_CHANNELS:
-                    try:
-                        client.copy_message(
-                            chat_id=log_chat,
-                            from_chat_id=callback_query.message.chat.id,
-                            message_id=sent_msg.message_id   # ✅ fixed
-                        )
-                        client.send_message(
-                            chat_id=log_chat,
-                            text=f"👤 User: `{user_id}` (@{username})\n🎬 File: `{file_name}`"
-                        )
-                    except Exception as e:
-                        print(f"[LOG ERROR] {e}")
-            else:
-                try:
-                    client.copy_message(
-                        chat_id=LOG_CHANNELS,
-                        from_chat_id=callback_query.message.chat.id,
-                        message_id=sent_msg.message_id   # ✅ fixed
-                    )
-                    client.send_message(
-                        chat_id=LOG_CHANNELS,
-                        text=f"👤 User: `{user_id}` (@{username})\n🎬 File: `{file_name}`"
-                    )
-                except Exception as e:
-                    print(f"[LOG ERROR] {e}")
-        # ===========================================
-
-        remove_from_queue(user_id, direct_link)
-        dl_msg.edit("🎉 **Episode Uploaded Successfully!**")
-
-        if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
-        if os.path.exists(user_dir): remove_directory(user_dir)
-
-    except Exception as e:
-        callback_query.message.reply_text(f"❌ Error: {e}")
+     # ===== Forward / Copy to log channel(s) =====
+if LOG_CHANNELS:
+    if isinstance(LOG_CHANNELS, (list, tuple)):
+        for log_chat in LOG_CHANNELS:
+            try:
+                print(f"[LOG COPY] Trying to copy {file_name} to {log_chat}")
+                client.copy_message(
+                    chat_id=log_chat,
+                    from_chat_id=callback_query.message.chat.id,
+                    message_id=sent_msg.message_id
+                )
+                client.send_message(
+                    chat_id=log_chat,
+                    text=f"👤 User: `{user_id}` (@{username})\n🎬 File: `{file_name}`"
+                )
+                print(f"[LOG COPY SUCCESS] {file_name} copied to {log_chat}")
+            except Exception as e:
+                print(f"[LOG ERROR] {e}")
+    else:
+        try:
+            print(f"[LOG COPY] Trying to copy {file_name} to {LOG_CHANNELS}")
+            client.copy_message(
+                chat_id=LOG_CHANNELS,
+                from_chat_id=callback_query.message.chat.id,
+                message_id=sent_msg.message_id
+            )
+            client.send_message(
+                chat_id=LOG_CHANNELS,
+                text=f"👤 User: `{user_id}` (@{username})\n🎬 File: `{file_name}`"
+            )
+            print(f"[LOG COPY SUCCESS] {file_name} copied to {LOG_CHANNELS}")
+        except Exception as e:
+            print(f"[LOG ERROR] {e}")
 
 # ========= SEND AND DELETE FILE =========
 def send_and_delete_file(client, chat_id, file_path, thumb_path=None, caption="", user_id=None):
