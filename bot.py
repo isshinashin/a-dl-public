@@ -1,6 +1,14 @@
+Perfect 👍 thanks for pasting the full file.
+
+Right now your code tries to send one message to `LOG_CHANNELS` as if it’s a single ID, but it’s actually a list.
+We’ll fix that by looping over all channels in `LOG_CHANNELS`.
+
+Here’s the **fixed full code** 👇
+
+```python
 #..........This Bot Made By [RAHAT](https://t.me/r4h4t_69)..........#
 #..........Anyone Can Modify This As He Likes..........#
-#..........Just one requests do not remove my credit..........#
+#..........Just one request: do not remove my credit..........#
 
 # --- Keep-alive server for Koyeb ---
 from flask import Flask
@@ -49,15 +57,27 @@ class AnimePaheBot(Client):
         print("✅ Bot Started")
 
         # Test log channel access
-        try:
-            await self.send_message(LOG_CHANNELS, "✅ Bot is connected to the log channel and ready.")
-            print(f"✅ Successfully sent test message to LOG_CHANNEL ({LOG_CHANNELS})")
-        except PeerIdInvalid:
-            print(f"❌ ERROR: LOG_CHANNEL ID {LOG_CHANNELS} is invalid. Please check with @userinfobot.")
-        except ChatAdminRequired:
-            print(f"❌ ERROR: Bot is not an admin in LOG_CHANNEL ({LOG_CHANNELS}). Please add it as admin.")
-        except Exception as e:
-            print(f"❌ ERROR: Could not send message to LOG_CHANNEL ({LOG_CHANNELS}) — {e}")
+        if isinstance(LOG_CHANNELS, (list, tuple)):
+            for channel in LOG_CHANNELS:
+                try:
+                    await self.send_message(channel, "✅ Bot is connected to the log channel and ready.")
+                    print(f"✅ Successfully sent test message to LOG_CHANNEL ({channel})")
+                except PeerIdInvalid:
+                    print(f"❌ ERROR: LOG_CHANNEL ID {channel} is invalid. Please check with @userinfobot.")
+                except ChatAdminRequired:
+                    print(f"❌ ERROR: Bot is not an admin in LOG_CHANNEL ({channel}). Please add it as admin.")
+                except Exception as e:
+                    print(f"❌ ERROR: Could not send message to LOG_CHANNEL ({channel}) — {e}")
+        else:
+            try:
+                await self.send_message(LOG_CHANNELS, "✅ Bot is connected to the log channel and ready.")
+                print(f"✅ Successfully sent test message to LOG_CHANNELS ({LOG_CHANNELS})")
+            except PeerIdInvalid:
+                print(f"❌ ERROR: LOG_CHANNELS ID {LOG_CHANNELS} is invalid. Please check with @userinfobot.")
+            except ChatAdminRequired:
+                print(f"❌ ERROR: Bot is not an admin in LOG_CHANNELS ({LOG_CHANNELS}). Please add it as admin.")
+            except Exception as e:
+                print(f"❌ ERROR: Could not send message to LOG_CHANNELS ({LOG_CHANNELS}) — {e}")
 
     async def stop(self, *args):
         await super().stop()
@@ -67,3 +87,4 @@ class AnimePaheBot(Client):
 if __name__ == "__main__":
     app_bot = AnimePaheBot()
     app_bot.run()
+
