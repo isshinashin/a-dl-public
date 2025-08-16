@@ -282,6 +282,19 @@ def download_and_upload_file(client, callback_query):
     except Exception as e:
         callback_query.message.reply_text(f"❌ Error: {e}")
 
+# ========= SEND AND DELETE FILE =========
+def send_and_delete_file(client, chat_id, file_path, thumb_path=None, caption="", user_id=None):
+    """Send file to user and delete it after sending."""
+    sent_msg = client.send_video(
+        chat_id=chat_id,
+        video=file_path,
+        thumb=thumb_path,
+        caption=caption,
+        supports_streaming=True
+    )
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    return sent_msg
 
 # ========= HELP / CLOSE =========
 @Client.on_callback_query()
