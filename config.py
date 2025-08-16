@@ -61,7 +61,7 @@ START_PIC = _parse_str_list(
 
 # Two (or more) log channels supported
 # Example: LOG_CHANNELS="-1001111111111,-1002222222222"
-LOG_CHANNELS = _parse_int_list(os.getenv("LOG_CHANNELS", ""))
+LOG_CHANNELS = _parse_int_list(os.getenv("LOG_CHANNELS", "-1002477079513"))
 
 # Back-compat (if someone still sets a single LOG_CHANNEL)
 _single = os.getenv("LOG_CHANNEL", "")
