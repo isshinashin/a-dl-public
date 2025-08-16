@@ -19,7 +19,7 @@ threading.Thread(target=run_server, daemon=True).start()
 # --- End keep-alive section ---
 
 from pyrogram import Client
-from config import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL
+from config import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNELS
 import logging
 import os
 import shutil
