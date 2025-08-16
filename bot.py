@@ -50,14 +50,14 @@ class AnimePaheBot(Client):
 
         # Test log channel access
         try:
-            await self.send_message(LOG_CHANNEL, "✅ Bot is connected to the log channel and ready.")
-            print(f"✅ Successfully sent test message to LOG_CHANNEL ({LOG_CHANNEL})")
+            await self.send_message(LOG_CHANNELS, "✅ Bot is connected to the log channel and ready.")
+            print(f"✅ Successfully sent test message to LOG_CHANNEL ({LOG_CHANNELS})")
         except PeerIdInvalid:
-            print(f"❌ ERROR: LOG_CHANNEL ID {LOG_CHANNEL} is invalid. Please check with @userinfobot.")
+            print(f"❌ ERROR: LOG_CHANNEL ID {LOG_CHANNELS} is invalid. Please check with @userinfobot.")
         except ChatAdminRequired:
-            print(f"❌ ERROR: Bot is not an admin in LOG_CHANNEL ({LOG_CHANNEL}). Please add it as admin.")
+            print(f"❌ ERROR: Bot is not an admin in LOG_CHANNEL ({LOG_CHANNELS}). Please add it as admin.")
         except Exception as e:
-            print(f"❌ ERROR: Could not send message to LOG_CHANNEL ({LOG_CHANNEL}) — {e}")
+            print(f"❌ ERROR: Could not send message to LOG_CHANNEL ({LOG_CHANNELS}) — {e}")
 
     async def stop(self, *args):
         await super().stop()
