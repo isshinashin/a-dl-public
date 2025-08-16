@@ -2,157 +2,88 @@
 #..........Anyone Can Modify This As He Likes..........#
 #..........Just one requests do not remove my credit..........#
 
-import requests
 import os
-import string
-import random
-import shutil
-import re
-from helper.database import*
 import subprocess
 import json
-from config import LOG_CHANNEL
+import math
 import cloudscraper
+from pyrogram.types import Message
+from config import LOG_CHANNELS, DOWNLOAD_DIR
 
-def create_short_name(name):
-    # Check if the name length is greater than 25
+def create_short_name(name: str) -> str:
     if len(name) > 30:
-        # Extract all capital letters from the name
-        short_name = ''.join(word[0].upper() for word in name.split())					
-        return short_name    
+        return ''.join(word[0].upper() for word in name.split())
     return name
 
 def get_media_details(path):
     try:
-        # Run ffprobe command to get media info in JSON format
         result = subprocess.run(
-            [
-                "ffprobe",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-print_format",
-                "json",
-                "-show_format",
-                "-show_streams",
-                path,
-            ],
-            capture_output=True,
-            text=True,
+            ["ffprobe", "-hide_banner", "-loglevel", "error",
+             "-print_format", "json", "-show_format", "-show_streams", path],
+            capture_output=True, text=True
         )
-
         if result.returncode != 0:
-            print(f"Error: Unable to process the file. FFprobe output:\n{result.stderr}")
-            return None
-
-        # Parse JSON output
+            return None, None, None
         media_info = json.loads(result.stdout)
+        duration = float(media_info["format"].get("duration", 0.0))
+        video_stream = next((s for s in media_info["streams"] if s.get("codec_type") == "video"), None)
+        width = (video_stream or {}).get("width")
+        height = (video_stream or {}).get("height")
+        return duration, width, height
+    except Exception:
+        return None, None, None
 
-        # Extract width, height, and duration
-        video_stream = next((stream for stream in media_info["streams"] if stream["codec_type"] == "video"), None)
-        width = video_stream.get("width") if video_stream else None
-        height = video_stream.get("height") if video_stream else None
-        duration = media_info["format"].get("duration")
+def _safe_edit(msg: Message, text: str):
+    try:
+        if msg and msg.text != text:
+            msg.edit_text(text)
+    except Exception:
+        pass
 
-        return width, height, duration
-
+def download_file(url: str, file_path: str, progress_msg: Message | None):
+    """
+    Stream download to local file_path; updates progress message every ~10%.
+    Returns local file_path on success, else None.
+    """
+    os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
+    try:
+        scraper = cloudscraper.create_scraper()
+        with scraper.get(url, stream=True) as r:
+            if r.status_code != 200:
+                _safe_edit(progress_msg, f"Failed to download file. HTTP {r.status_code}")
+                return None
+            total = int(r.headers.get("content-length", 0)) or 0
+            done = 0
+            next_tick = 0
+            tmp = file_path + ".part"
+            with open(tmp, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024 * 256):
+                    if not chunk:
+                        continue
+                    f.write(chunk)
+                    done += len(chunk)
+                    if total:
+                        pct = math.floor(done * 100 / total)
+                        if pct >= next_tick:
+                            _safe_edit(progress_msg, f"Downloading... {pct}%")
+                            next_tick = min(100, pct + 10)
+            os.replace(tmp, file_path)
+        return file_path
     except Exception as e:
-        print(f"An error occurred: {e}")
+        _safe_edit(progress_msg, f"Download error: {e}")
         return None
 
-def download_file(url, download_path):
-    # Create a CloudScraper instance to bypass Cloudflare
-    scraper = cloudscraper.create_scraper()
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': 'https://kwik.cx/',
-        'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5'
-    }
-    
-    # Use the scraper instead of requests.get
-    with scraper.get(url, headers=headers, stream=True) as r:
-        r.raise_for_status()
-        with open(download_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-    return download_path
-    
-def sanitize_filename(file_name):
-    # Remove invalid characters from the file name
-    file_name = re.sub(r'[<>:"/\\|?*]', '', file_name)
-    return file_name
-    
-def send_and_delete_file(client, chat_id, file_path, thumbnail=None, caption="", user_id=None):
-    upload_method = get_upload_method(user_id)  # Retrieve user's upload method
-    forwarding_channel = LOG_CHANNEL  # Channel to forward the file
-
-    try:        
-        user_info = client.get_users(user_id)
-        user_details = f"Downloaded by: @{user_info.username if user_info.username else 'Unknown'} (ID: {user_id})"
-        
-        # Add user info to the caption
-        caption_with_info = f"{caption}\n\n{user_details}"
-        if upload_method == "document":
-            # Send as document
-            sent_message = client.send_document(
-                chat_id,
-                file_path,
-                thumb=thumbnail if thumbnail else None,
-                caption=caption
-            )
-        else:
-            # Initialize variables before the conditional check
-            width, height, duration = None, None, None
-            details = get_media_details(file_path)
-            if details:
-                width, height, duration = details
-                width = int(width) if width else None
-                height = int(height) if height else None
-                duration = int(float(duration)) if duration else None
-            sent_message = client.send_video(
-                chat_id,
-                file_path,
-                duration= duration if duration else None,
-                width= width if width else None,
-                height= height if height else None,
-                supports_streaming= True,
-                has_spoiler= True,
-                thumb=None,
-                caption=caption
-            )
-        
-        # Forward the message to the specified channel
-        forward_message = client.copy_message(
-            chat_id=forwarding_channel,
-            from_chat_id=chat_id,
-            message_id=sent_message.id,
-            caption=caption_with_info
-        )
-        
-        # Delete the file after sending and forwarding
-        os.remove(file_path)
-        
-    except Exception as e:
-        client.send_message(chat_id, f"Error: {str(e)}")
-        
-
-def remove_directory(directory_path):
-    if not os.path.exists(directory_path):
-        raise FileNotFoundError(f"The directory '{directory_path}' does not exist.")
-    
-    try:
-        shutil.rmtree(directory_path)
-        #print(f"Directory '{directory_path}' has been removed successfully.")
-    except PermissionError as e:
-        print(f"Permission denied: {e}")
-    except Exception as e:
-        print(f"An error occurred while removing the directory: {e}")
-
-def random_string(length):
-    if length < 1:
-        raise ValueError("Length must be a positive integer.")
-    
-    # Define the characters to choose from (letters and digits)
-    characters = string.ascii_letters + string.digits
-    return ''.join(random.choice(characters) for _ in range(length))
+def forward_to_logs(client, src_chat_id: int, sent_msg_id: int, meta_text: str):
+    """
+    Forward the sent message to each log channel, then send a small meta note.
+    """
+    if not LOG_CHANNELS:
+        return
+    for ch in LOG_CHANNELS:
+        try:
+            client.forward_messages(chat_id=ch, from_chat_id=src_chat_id, message_ids=sent_msg_id)
+            if meta_text:
+                client.send_message(ch, meta_text, disable_web_page_preview=True)
+        except Exception:
+            # avoid crashing the main flow if a log channel breaks
+            pass
