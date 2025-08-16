@@ -8,13 +8,14 @@ from pyrogram.errors import MessageNotModified
 from plugins.direct_link import get_direct_from_kwik
 from plugins.file import download_file, forward_to_logs, get_media_details
 from plugins.commands import user_queries
-from helper.database import get_caption, get_thumbnail   # ✅ fixed here
-from config import DOWNLOAD_DIR, LOG_CHANNELS   # LOG_CHANNELS should be a list in config
+from helper.database import get_caption, get_thumbnail   # <-- fixed import
+from config import DOWNLOAD_DIR, LOG_CHANNELS
 from bs4 import BeautifulSoup
 import os
 import re
 import requests
 import ssl
+import json
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
@@ -22,11 +23,9 @@ episode_data = {}
 
 # ===== Default headers =====
 headers = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/139.0.0.0 Safari/537.36"
-    )
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/139.0.0.0 Safari/537.36"
 }
 
 # ===== TLS Adapter for handshake fix =====
@@ -43,14 +42,28 @@ class TLSAdapter(HTTPAdapter):
 session_tls = requests.Session()
 session_tls.mount("https://", TLSAdapter())
 
+# ===== Safe JSON fetch =====
+def safe_get_json(url, headers=None):
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except (requests.exceptions.RequestException, json.JSONDecodeError):
+        return None
+
 # ========= ANIME DETAILS =========
 @Client.on_callback_query(filters.regex(r"^anime_"))
 def anime_details(client, callback_query):
     session_id = callback_query.data.split("anime_")[1]
     query = user_queries.get(callback_query.message.chat.id, "")
     search_url = f"https://animepahe.ru/api?m=search&q={query.replace(' ', '+')}"
-    response = requests.get(search_url).json()
-    anime = next((a for a in response["data"] if a['id'] == session_id), None)
+
+    response = safe_get_json(search_url, headers=headers)
+    if not response or "data" not in response:
+        callback_query.answer("⚠️ Failed to fetch anime info. Try again later.", show_alert=True)
+        return
+
+    anime = next((a for a in response["data"] if str(a['id']) == str(session_id)), None)
     if not anime:
         callback_query.answer("Anime not found. Try again.", show_alert=True)
         return
@@ -86,7 +99,6 @@ def anime_details(client, callback_query):
         )
     except MessageNotModified:
         pass
-
 
 # ========= EPISODE DETAILS =========
 @Client.on_callback_query(filters.regex(r"^episode_"))
@@ -136,14 +148,12 @@ def episode_details(client, callback_query):
     except MessageNotModified:
         pass
 
-
 # ========= DOWNLOAD START =========
 @Client.on_callback_query(filters.regex(r"^download_"))
 def download_start(client, callback_query):
     chat_id = callback_query.message.chat.id
     msg = callback_query.message
 
-    # restore state
     data = episode_data.get(chat_id)
     if not data:
         callback_query.answer("Error: Data not found. Please /search again.", show_alert=True)
@@ -157,7 +167,7 @@ def download_start(client, callback_query):
         callback_query.answer("Bad download data.", show_alert=True)
         return
 
-    # find kwik link
+    # find the kwik link for this quality
     download_url = f"https://animepahe.ru/download/{episode_session}"
     page = session_tls.get(download_url, headers=headers).text
     soup = BeautifulSoup(page, "html.parser")
@@ -201,7 +211,7 @@ def download_start(client, callback_query):
     username = (msg.from_user.username and f"@{msg.from_user.username}") or "—"
 
     try:
-        thumb_id = get_thumbnail(user_id)   # ✅ fixed here
+        thumb_id = get_thumbnail(user_id)
         base_caption = get_caption(user_id) or ""
         cap = f"{base_caption}\n\n{safe_title} [{quality}]".strip()
 
@@ -246,7 +256,6 @@ def download_start(client, callback_query):
         os.remove(saved)
     except Exception:
         pass
-
 
 # ========= CLOSE BUTTON =========
 @Client.on_callback_query(filters.regex(r"^close"))
