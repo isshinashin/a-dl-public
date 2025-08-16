@@ -37,9 +37,12 @@ class TLSAdapter(HTTPAdapter):
 session_tls = requests.Session()
 session_tls.mount("https://", TLSAdapter())
 
+
+
 # ========= HELPER FUNCTIONS =========
 import random
 import string
+import shutil   # ✅ needed for remove_directory
 
 def sanitize_filename(name: str) -> str:
     """Remove invalid characters for filenames."""
@@ -52,6 +55,13 @@ def create_short_name(name: str, max_len: int = 30) -> str:
 def random_string(length: int = 5) -> str:
     """Generate a random string (for unique temp folders)."""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+def remove_directory(path: str):
+    """Remove a folder and all its contents safely."""
+    try:
+        shutil.rmtree(path)
+    except Exception as e:
+        print(f"[REMOVE_DIR ERROR] {e}")
 
 # ========= ANIME DETAILS =========
 @Client.on_callback_query(filters.regex(r"^anime_"))
@@ -250,7 +260,7 @@ def download_and_upload_file(client, callback_query):
                         client.copy_message(
                             chat_id=log_chat,
                             from_chat_id=callback_query.message.chat.id,
-                            message_id=sent_msg.id
+                            message_id=sent_msg.message_id   # ✅ fixed
                         )
                         client.send_message(
                             chat_id=log_chat,
@@ -263,7 +273,7 @@ def download_and_upload_file(client, callback_query):
                     client.copy_message(
                         chat_id=LOG_CHANNELS,
                         from_chat_id=callback_query.message.chat.id,
-                        message_id=sent_msg.id
+                        message_id=sent_msg.message_id   # ✅ fixed
                     )
                     client.send_message(
                         chat_id=LOG_CHANNELS,
