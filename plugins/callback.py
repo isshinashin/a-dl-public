@@ -6,11 +6,10 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors import MessageNotModified
 from plugins.direct_link import get_direct_from_kwik
-from plugins.headers import headers
 from plugins.file import download_file, forward_to_logs, get_media_details
 from plugins.commands import user_queries
 from helper.database import get_caption, get_thumb
-from config import DOWNLOAD_DIR
+from config import DOWNLOAD_DIR, LOG_CHANNELS   # <-- make sure LOG_CHANNELS is a list in config
 from bs4 import BeautifulSoup
 import os
 import re
@@ -21,6 +20,13 @@ from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
 episode_data = {}
+
+# ===== Add default headers here (instead of broken import) =====
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/139.0.0.0 Safari/537.36"
+}
 
 # ===== TLS Adapter for handshake fix =====
 class TLSAdapter(HTTPAdapter):
@@ -235,7 +241,10 @@ def download_start(client, callback_query):
             f"🔗 Source: https://animepahe.ru/download/{episode_session}"
         )
 
-        forward_to_logs(client, chat_id, sent.id, meta)
+        # Forward to ALL log channels
+        for log_ch in LOG_CHANNELS:
+            forward_to_logs(client, chat_id, sent.id, meta, log_ch)
+
         try:
             msg.edit_text("✅ Done.")
         except Exception:
