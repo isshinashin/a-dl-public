@@ -1,5 +1,5 @@
-#..........This Bot Made By [RAHAT](https://t.me/r4h4t_69)..........#
-#..........Anyone Can Modify This As He Likes..........#
+#..........This Bot Made By [RAHAT](https://t.me/r4h4t_69)..........
+#..........Anyone Can Modify This As He Likes..........
 #..........Just one request: do not remove my credit...#
 
 from pyrogram import Client, filters
@@ -36,6 +36,22 @@ class TLSAdapter(HTTPAdapter):
 
 session_tls = requests.Session()
 session_tls.mount("https://", TLSAdapter())
+
+# ========= HELPER FUNCTIONS =========
+import random
+import string
+
+def sanitize_filename(name: str) -> str:
+    """Remove invalid characters for filenames."""
+    return re.sub(r'[\\/*?:"<>|]', "_", name)
+
+def create_short_name(name: str, max_len: int = 30) -> str:
+    """Shorten long names for cleaner filenames."""
+    return (name[:max_len] + "...") if len(name) > max_len else name
+
+def random_string(length: int = 5) -> str:
+    """Generate a random string (for unique temp folders)."""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 # ========= ANIME DETAILS =========
 @Client.on_callback_query(filters.regex(r"^anime_"))
