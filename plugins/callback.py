@@ -8,24 +8,25 @@ from pyrogram.errors import MessageNotModified
 from plugins.direct_link import get_direct_from_kwik
 from plugins.file import download_file, forward_to_logs, get_media_details
 from plugins.commands import user_queries
-from helper.database import get_caption, get_thumb
-from config import DOWNLOAD_DIR, LOG_CHANNELS   # <-- make sure LOG_CHANNELS is a list in config
+from helper.database import get_caption, get_thumbnail   # ✅ fixed here
+from config import DOWNLOAD_DIR, LOG_CHANNELS   # LOG_CHANNELS should be a list in config
 from bs4 import BeautifulSoup
 import os
 import re
 import requests
 import ssl
-import time
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
 episode_data = {}
 
-# ===== Add default headers here (instead of broken import) =====
+# ===== Default headers =====
 headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/139.0.0.0 Safari/537.36"
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/139.0.0.0 Safari/537.36"
+    )
 }
 
 # ===== TLS Adapter for handshake fix =====
@@ -63,7 +64,7 @@ def anime_details(client, callback_query):
     # store state for this chat
     episode_data[callback_query.message.chat.id] = {
         "anime_title": anime['title'],
-        "anime_session_id": session_id,      # keep for 'Back to Anime' button
+        "anime_session_id": session_id,
         "episodes": {e['data-episode-number']: e['data-session'] for e in episodes}
     }
 
@@ -117,7 +118,6 @@ def episode_details(client, callback_query):
     buttons = []
     for link in download_links:
         quality = link.get("title", "Unknown Quality")
-        # We pass both the kwik url and quality in the callback
         buttons.append([InlineKeyboardButton(
             f"Download {quality}",
             callback_data=f"download_{episode_session}__{quality}"
@@ -140,12 +140,6 @@ def episode_details(client, callback_query):
 # ========= DOWNLOAD START =========
 @Client.on_callback_query(filters.regex(r"^download_"))
 def download_start(client, callback_query):
-    """
-    1) Resolve selected quality's kwik link to a direct link
-    2) Download the file
-    3) Send file to user
-    4) Forward that message to TWO log channels and add metadata
-    """
     chat_id = callback_query.message.chat.id
     msg = callback_query.message
 
@@ -163,7 +157,7 @@ def download_start(client, callback_query):
         callback_query.answer("Bad download data.", show_alert=True)
         return
 
-    # find the kwik link for this quality
+    # find kwik link
     download_url = f"https://animepahe.ru/download/{episode_session}"
     page = session_tls.get(download_url, headers=headers).text
     soup = BeautifulSoup(page, "html.parser")
@@ -178,7 +172,6 @@ def download_start(client, callback_query):
         callback_query.answer("Download link not found.", show_alert=True)
         return
 
-    # Resolve to direct link
     try:
         msg.edit_text("Resolving link…")
     except Exception:
@@ -189,7 +182,6 @@ def download_start(client, callback_query):
         callback_query.answer("Failed to resolve direct link.", show_alert=True)
         return
 
-    # Prepare local path
     safe_title = anime_title.replace("/", "-").replace("\\", "-")
     file_name = f"{safe_title} - {quality}.mp4"
     local_path = os.path.join(DOWNLOAD_DIR, file_name)
@@ -199,21 +191,17 @@ def download_start(client, callback_query):
     except Exception:
         pass
 
-    # Download
     saved = download_file(direct_link, local_path, msg)
     if not saved or not os.path.exists(saved):
         callback_query.answer("Download failed.", show_alert=True)
         return
 
-    # Gather meta
     duration, width, height = get_media_details(saved)
     user_id = msg.from_user.id
     username = (msg.from_user.username and f"@{msg.from_user.username}") or "—"
 
-    # Send the file to the user
     try:
-        # optional thumb & caption
-        thumb_id = get_thumb(user_id)
+        thumb_id = get_thumbnail(user_id)   # ✅ fixed here
         base_caption = get_caption(user_id) or ""
         cap = f"{base_caption}\n\n{safe_title} [{quality}]".strip()
 
@@ -231,7 +219,6 @@ def download_start(client, callback_query):
             thumb=thumb_id if thumb_id else None
         )
 
-        # Build a small meta note for logs
         meta = (
             "📥 Forwarded download\n"
             f"👤 User: {username}\n"
@@ -241,7 +228,6 @@ def download_start(client, callback_query):
             f"🔗 Source: https://animepahe.ru/download/{episode_session}"
         )
 
-        # Forward to ALL log channels
         for log_ch in LOG_CHANNELS:
             forward_to_logs(client, chat_id, sent.id, meta, log_ch)
 
@@ -256,7 +242,6 @@ def download_start(client, callback_query):
         except Exception:
             pass
 
-    # Optional: clean up local file
     try:
         os.remove(saved)
     except Exception:
