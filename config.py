@@ -3,18 +3,73 @@
 #..........Just one requests do not remove my credit..........#
 
 import os
+import json
 
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-MONGO_URL = os.getenv("MONGO_URL")
+def _parse_int(value: str, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+def _parse_int_list(env_value: str) -> list[int]:
+    """
+    Accepts:
+      - JSON list string: "[-100111,-100222]"
+      - Comma-separated: "-100111,-100222"
+      - Single value: "-100111"
+    Returns: list[int]
+    """
+    if not env_value:
+        return []
+    env_value = env_value.strip()
+    # Try JSON first
+    try:
+        parsed = json.loads(env_value)
+        if isinstance(parsed, list):
+            return [_parse_int(str(x)) for x in parsed]
+        # single int inside JSON
+        return [_parse_int(str(parsed))]
+    except Exception:
+        # fallback: comma-separated
+        parts = [p for p in env_value.replace(" ", "").split(",") if p]
+        return [_parse_int(p) for p in parts]
+
+def _parse_str_list(env_value: str, default: list[str] | None = None) -> list[str]:
+    if not env_value:
+        return default or []
+    # allow JSON array or comma separated
+    try:
+        parsed = json.loads(env_value)
+        if isinstance(parsed, list):
+            return [str(x) for x in parsed]
+    except Exception:
+        pass
+    return [s.strip() for s in env_value.split(",") if s.strip()]
+
+API_ID = _parse_int(os.getenv("API_ID", "0"))
+API_HASH = os.getenv("API_HASH", "")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+
+MONGO_URL = os.getenv("MONGO_URL", "")
 DB_NAME = os.getenv("DB_NAME", "Rahat")
-START_PIC = os.getenv("START_PIC", "https://envs.sh/aWO.jpg").split(",")
-LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", ""))
+
+# Images: JSON array or comma-separated
+START_PIC = _parse_str_list(
+    os.getenv("START_PICS", ""),
+    default=["https://envs.sh/aWO.jpg"]
+)
+
+# Two (or more) log channels supported
+# Example: LOG_CHANNELS="-1001111111111,-1002222222222"
+LOG_CHANNELS = _parse_int_list(os.getenv("LOG_CHANNELS", ""))
+
+# Back-compat (if someone still sets a single LOG_CHANNEL)
+_single = os.getenv("LOG_CHANNEL", "")
+if _single and not LOG_CHANNELS:
+    LOG_CHANNELS = [_parse_int(_single)]
+
 DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "downloads")
 
-# ADMIN should be a comma-separated string in env, e.g. "5424565785,6443423376"
-ADMIN = list(map(int, os.getenv("ADMIN", "").split(","))) if os.getenv("ADMIN") else []
+# Admins: JSON array or comma-separated of user IDs
+ADMIN = _parse_int_list(os.getenv("ADMIN", "")) or []
 
-
-START_PIC = os.environ.get("START_PIC", "https://graph.org/file/dfd1842d8a2dcc536a2b7.jpg https://graph.org/file/b55f0baaa7a6fde7c5682.jpg https://graph.org/file/3298ca8910c82f33418a8.jpg https://graph.org/file/4e4935469a7214c734721.jpg https://graph.org/file/fa5f2b241fe77beff8ba0.jpg https://graph.org/file/bcb9969f78ab4a47a483c.jpg https://graph.org/file/a9af161696d82f17b8888.jpg https://graph.org/file/d23b00650c00ce4d9a467.jpg https://graph.org/file/4dc0b3dfaad61fbcf0a49.jpg https://graph.org/file/7088315e9b0b6a2fa7118.jpg https://graph.org/file/9c9911d06e5f2316febb9.jpg https://graph.org/file/d2ee185180469cfd28071.jpg https://graph.org/file/dea04b2d615406aeb0181.jpg https://graph.org/file/98b63d3bb84984a68cc76.jpg").split()
