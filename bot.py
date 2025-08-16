@@ -1,11 +1,3 @@
-Perfect 👍 thanks for pasting the full file.
-
-Right now your code tries to send one message to `LOG_CHANNELS` as if it’s a single ID, but it’s actually a list.
-We’ll fix that by looping over all channels in `LOG_CHANNELS`.
-
-Here’s the **fixed full code** 👇
-
-```python
 #..........This Bot Made By [RAHAT](https://t.me/r4h4t_69)..........#
 #..........Anyone Can Modify This As He Likes..........#
 #..........Just one request: do not remove my credit..........#
