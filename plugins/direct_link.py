@@ -2,8 +2,6 @@
 #..........Anyone Can Modify This As He Likes..........#
 #..........Just one requests do not remove my credit..........#
 
-
-
 import re
 import cloudscraper
 from bs4 import BeautifulSoup
@@ -23,6 +21,7 @@ def step_2(s, seperator, base=10):
         mid = numbers[int(max_iter % base)] + mid
         max_iter = (max_iter - (max_iter % base)) / base
     return mid or '0'
+
 
 def step_1(data, key, load, seperator):
     """First step in Kwik link bypass"""
@@ -44,6 +43,7 @@ def step_1(data, key, load, seperator):
     )[0]
     return payload
 
+
 def bypass_kwik(link: str, scraper: cloudscraper.CloudScraper):
     """Bypass Kwik.si link to get direct download URL using cloudscraper"""
     try:
@@ -57,6 +57,7 @@ def bypass_kwik(link: str, scraper: cloudscraper.CloudScraper):
     except Exception as e:
         print(f"Error bypassing Kwik link: {e}")
         return None
+
 
 def get_dl_link(pahe_url: str):
     """Main function to get direct download link from Pahe.ph URL"""
@@ -80,5 +81,11 @@ def get_dl_link(pahe_url: str):
     
     except Exception as e:
         return f"An error occurred: {str(e)}"
-#----------------------------------------------------------------------------------------------------------------#
 
+
+# --- ALIAS for compatibility with callback.py ---
+def get_direct_from_kwik(pahe_url: str):
+    """Alias wrapper for backward compatibility"""
+    return get_dl_link(pahe_url)
+
+#----------------------------------------------------------------------------------------------------------------#
